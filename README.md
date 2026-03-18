@@ -18,31 +18,41 @@ Every notification tells you **what happened**, **why it matters**, and **one ke
 
 ---
 
-## Notification Preview
+## Notification Examples
 
-**Before (v1) — raw RSS snippet:**
-
-```
-Title: 🤖 TechCrunch AI
-Body:  OpenAI'ın yeni agent aracı... (2 cümle, bağlam yok)
-```
-
-**After (v2 — English):**
+**English (`--lang=en`):**
 
 ```
 Title: OpenAI announces enterprise agent toolkit
 
-Body:
 📰 TechCrunch AI
 
-What happened: OpenAI released a new suite of tools designed for building
-enterprise-grade autonomous agents, including improved function calling, a
-persistent memory API, and a new orchestration layer.
+What happened: OpenAI released a new suite of tools for building
+enterprise-grade autonomous agents, including improved function
+calling, a persistent memory API, and a new orchestration layer.
 
-Why it matters: This could significantly accelerate the adoption of agent-based
+Why it matters: This could significantly accelerate agent-based
 automation in large organizations by reducing integration complexity.
 
-💡 Initial access is being rolled out to select enterprise customers first.
+💡 Initial access is being rolled out to select enterprise customers.
+```
+
+**Turkish (`--lang=tr`):**
+
+```
+Title: AGI'ye doğru ilerlemeyi ölçmek: Bilişsel bir çerçeve
+
+📰 Google DeepMind
+
+Ne oldu: Google DeepMind, yapay genel zeka (AGI) yolunda ilerlemeyi
+değerlendirmek için bilişsel bilim temelli bir çerçeve yayınladı.
+10 temel bilişsel yeteneği tanımlıyor ve AI sistemlerinin yeteneklerini
+sınıflandırmaya yönelik bir taksonomi sunuyor.
+
+Neden önemli: Bu çerçeve, AI sistemlerinin genel zeka yeteneklerini
+bilişsel perspektiften değerlendirmek için ortak bir temel sağlayabilir.
+
+💡 200.000 dolar ödüllü Kaggle hackathonu başlatıldı.
 ```
 
 ---
