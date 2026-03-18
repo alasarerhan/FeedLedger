@@ -4,6 +4,8 @@
 
 export type FeedKind = 'official_blog' | 'media' | 'research' | 'newsletter';
 
+export type { SupportedLanguage } from './i18n.js';
+
 export interface FeedConfig {
   name: string;
   url: string;
@@ -29,7 +31,7 @@ export interface Article {
 export type SourceType = 'official_announcement' | 'media_report' | 'research' | 'newsletter';
 
 export interface StructuredSummary {
-  title_tr: string;
+  translated_title: string;
   what_happened: string;
   why_it_matters: string;
   key_detail: string;
