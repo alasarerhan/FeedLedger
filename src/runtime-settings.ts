@@ -82,6 +82,30 @@ export const GEMINI_MODEL_OPTIONS = [
   'gemini-flash-latest',
 ] as const;
 
+export const OPENROUTER_MODEL_OPTIONS = [
+  // DeepSeek
+  'deepseek/deepseek-v3.2-speciale',
+  'deepseek/deepseek-chat-v3-0324',
+  'deepseek/deepseek-r1',
+  // OpenAI
+  'openai/gpt-4.1',
+  'openai/gpt-4.1-mini',
+  'openai/gpt-4o',
+  'openai/gpt-4o-mini',
+  // Anthropic
+  'anthropic/claude-sonnet-4',
+  'anthropic/claude-3.7-sonnet',
+  'anthropic/claude-3.5-haiku',
+  // Google via OpenRouter
+  'google/gemini-2.5-pro',
+  'google/gemini-2.5-flash',
+  // Meta / xAI / Mistral / Qwen
+  'meta-llama/llama-3.3-70b-instruct',
+  'x-ai/grok-3-mini-beta',
+  'mistralai/mistral-large',
+  'qwen/qwen-2.5-72b-instruct',
+] as const;
+
 export const TIMEZONE_OPTIONS = [
   'Europe/Istanbul',
   'UTC',

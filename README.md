@@ -51,7 +51,7 @@ npm start -- --lang=en
 
 Open Admin Panel:
 
-- `http://127.0.0.1:8897`
+- `http://127.0.0.1:<PANEL_PORT>` (default: `8897`)
 
 ## Bootstrap Workflow
 
@@ -80,9 +80,14 @@ npm start -- --lang=en
 ```
 
 4. Verify control plane:
-   - Admin Panel: `http://127.0.0.1:8897`
+   - Admin Panel: `http://127.0.0.1:<PANEL_PORT>` (default: `8897`)
    - Authenticate with `admin` and `ADMIN_PANEL_PASSWORD`
-   - Confirm feed/topic configuration from dashboard
+   - Configure AI:
+     - set `Gemini API Key` and/or `OpenRouter API Key`
+     - choose `Gemini Model` and `OpenRouter Model`
+     - click `Set Gemini Active` or `Set OpenRouter Active`
+     - verify `Active now: ...` in AI card
+   - Confirm feed/topic configuration from dashboard, then click `Save and Apply`
 
 Runtime state (`data/`, `logs/`, secrets in `.env`) is environment-specific and remains outside version control.
 
@@ -136,6 +141,13 @@ docker compose logs --tail=120
 - `MAMMOTH_ENABLED` (default: `true`)
 - `MAMMOTH_URI` (default: `mongodb://127.0.0.1:27017`)
 - `MAMMOTH_DATABASE` (default: `feedledger`)
+
+### AI Model Selection in Admin Panel
+
+- `Gemini Model` is selected from curated Gemini presets.
+- `OpenRouter Model` is selected from a curated multi-vendor preset list (OpenAI, Anthropic, DeepSeek, Meta, xAI, Mistral, Qwen).
+- `Set Gemini Active` or `Set OpenRouter Active` switches runtime provider immediately for the target user.
+- `Save and Apply` persists all other panel settings while keeping the current active provider unless explicitly switched.
 
 Full template: [`.env.example`](.env.example)
 

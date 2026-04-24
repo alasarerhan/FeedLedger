@@ -6,6 +6,7 @@ import { handleReaderRoute, type ReaderSessionUser } from './reader-http.js';
 import {
   GEMINI_MODEL_OPTIONS,
   INTEREST_PRESET_OPTIONS,
+  OPENROUTER_MODEL_OPTIONS,
   REPORT_PERIOD_DAY_OPTIONS,
   REPORT_GROUPING_MODE_OPTIONS,
   SCHEDULE_TIME_PRESETS,
@@ -271,6 +272,7 @@ function renderDashboard(currentUser: ReaderSessionUser, targetUserId: string, m
   const settings = getPanelSettings(resolvedTargetUserId);
 
   const maskedGeminiApiKey = maskSecret(settings.geminiApiKey);
+  const maskedOpenrouterApiKey = maskSecret(settings.openrouterApiKey);
   const maskedNotionApiKey = maskSecret(settings.notionApiKey);
   const maskedTelegramBotToken = maskSecret(settings.telegramBotToken);
   const maskedTelegramChatId = maskSecret(settings.telegramChatId);
@@ -278,6 +280,25 @@ function renderDashboard(currentUser: ReaderSessionUser, targetUserId: string, m
   const geminiModelOptions = GEMINI_MODEL_OPTIONS
     .map(model => `<option value="${model}" ${settings.geminiModel === model ? 'selected' : ''}>${model}</option>`)
     .join('');
+
+  const openrouterModelEntries: Array<{ value: string; label: string }> = OPENROUTER_MODEL_OPTIONS
+    .map(model => ({
+      value: model,
+      label: model.replace('/', ' · '),
+    }));
+  const hasCurrentOpenrouterModel = openrouterModelEntries.some(entry => entry.value === settings.openrouterModel);
+  if (!hasCurrentOpenrouterModel && settings.openrouterModel.trim()) {
+    openrouterModelEntries.unshift({
+      value: settings.openrouterModel,
+      label: `${settings.openrouterModel} (current)`,
+    });
+  }
+  const openrouterModelOptions = openrouterModelEntries
+    .map(entry => `<option value="${entry.value}" ${settings.openrouterModel === entry.value ? 'selected' : ''}>${htmlEscape(entry.label)}</option>`)
+    .join('');
+  const activeAiLabel = settings.aiProvider === 'gemini'
+    ? `Google Gemini · ${settings.geminiModel}`
+    : `OpenRouter · ${settings.openrouterModel}`;
 
   const timezoneOptions = TIMEZONE_OPTIONS
     .map(tz => `<option value="${tz}" ${settings.reportTimezone === tz ? 'selected' : ''}>${tz}</option>`)
@@ -547,13 +568,34 @@ function renderDashboard(currentUser: ReaderSessionUser, targetUserId: string, m
         <h2>AI</h2>
         <div class="grid-2">
           <div>
+            <label>Gemini Model</label>
+            <select name="geminiModel">${geminiModelOptions}</select>
+          </div>
+          <div>
+            <label>OpenRouter Model</label>
+            <select name="openrouterModel">${openrouterModelOptions}</select>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top:10px;">
+          <div>
             <label>Gemini API Key</label>
             <input type="password" autocomplete="off" name="geminiApiKey" value="${htmlEscape(maskedGeminiApiKey)}" />
           </div>
           <div>
-            <label>Gemini Model</label>
-            <select name="geminiModel">${geminiModelOptions}</select>
+            <label>OpenRouter API Key</label>
+            <input type="password" autocomplete="off" name="openrouterApiKey" value="${htmlEscape(maskedOpenrouterApiKey)}" />
           </div>
+        </div>
+        <div class="muted" style="margin-top:8px;">
+          OpenRouter list includes multiple vendors (OpenAI, Anthropic, DeepSeek, Meta, xAI, Mistral, Qwen).
+        </div>
+        <div class="muted" style="margin-top:6px;">
+          Active now: ${htmlEscape(activeAiLabel)}
+        </div>
+        <div class="actions" style="margin-top:10px; justify-content:flex-start;">
+          <button type="submit" class="small-btn" name="saveMode" value="ai-gemini">Set Gemini Active</button>
+          <button type="submit" class="small-btn" name="saveMode" value="ai-openrouter">Set OpenRouter Active</button>
+          <span class="muted">Selected button decides active vendor. Only AI fields are updated.</span>
         </div>
       </section>
 
@@ -1693,44 +1735,72 @@ export function startAdminPanel(options: AdminPanelOptions): void {
         : sessionUser.userId;
 
       const current = getPanelSettings(targetUserId);
-      const interests = parseJsonArrayInput(form.interestsJson).filter((value): value is string => typeof value === 'string');
-      const feeds = parseJsonArrayInput(form.feedsJson);
-      const specialProjectsRaw = parseJsonArrayInput(form.specialProjectsJson);
+      const saveMode = form.saveMode === 'ai-gemini'
+        ? 'ai-gemini'
+        : form.saveMode === 'ai-openrouter'
+          ? 'ai-openrouter'
+          : 'all';
+      const nextAiProvider = saveMode === 'ai-gemini'
+        ? 'gemini'
+        : saveMode === 'ai-openrouter'
+          ? 'openrouter'
+          : (form.aiProvider === 'openrouter' ? 'openrouter' : current.aiProvider);
       const nextGeminiApiKey = resolveSecretInput(form.geminiApiKey, current.geminiApiKey);
+      const nextOpenrouterApiKey = resolveSecretInput(form.openrouterApiKey, current.openrouterApiKey);
       const nextGeminiModel = form.geminiModel || current.geminiModel || 'gemini-2.5-flash';
-      const specialProjects = await enrichProjectsWithAutoPrompt(
-        specialProjectsRaw,
-        nextGeminiApiKey,
-        nextGeminiModel,
-      );
+      const nextOpenrouterModel = (form.openrouterModel || current.openrouterModel || 'deepseek/deepseek-v3.2-speciale').trim();
+      if (saveMode === 'ai-gemini' || saveMode === 'ai-openrouter') {
+        updateRuntimeSettings(targetUserId, {
+          aiProvider: nextAiProvider,
+          geminiApiKey: nextGeminiApiKey,
+          geminiModel: nextGeminiModel,
+          openrouterApiKey: nextOpenrouterApiKey,
+          openrouterModel: nextOpenrouterModel,
+        });
+      } else {
+        const interests = parseJsonArrayInput(form.interestsJson).filter((value): value is string => typeof value === 'string');
+        const feeds = parseJsonArrayInput(form.feedsJson);
+        const specialProjectsRaw = parseJsonArrayInput(form.specialProjectsJson);
+        const specialProjects = await enrichProjectsWithAutoPrompt(
+          specialProjectsRaw,
+          nextGeminiApiKey,
+          nextGeminiModel,
+        );
 
-      updateRuntimeSettings(targetUserId, {
-        aiProvider: current.aiProvider,
-        geminiApiKey: nextGeminiApiKey,
-        geminiModel: form.geminiModel || '',
-        notionApiKey: resolveSecretInput(form.notionApiKey, current.notionApiKey),
-        notionParentPageId: form.notionParentPageId || '',
-        telegramBotToken: resolveSecretInput(form.telegramBotToken, current.telegramBotToken),
-        telegramChatId: resolveSecretInput(form.telegramChatId, current.telegramChatId),
-        mammothEnabled: form.mammothEnabled === '1',
-        mammothUri: form.mammothUri || '',
-        mammothDatabase: form.mammothDatabase || '',
-        reportTimezone: form.reportTimezone || '',
-        dailyScanTime: form.dailyScanTime || '',
-        dailySendTime: form.dailySendTime || '',
-        reportPeriodDays: Number.parseInt(form.reportPeriodDays || '1', 10),
-        assistantGreeting: form.assistantGreeting || '',
-        assistantSignature: form.assistantSignature || '',
-        notionQuotaAutoclean: form.notionQuotaAutoclean === '1',
-        interests,
-        feeds: feeds as any,
-        specialProjects: specialProjects as any,
-        reportGroupingMode: form.reportGroupingMode === 'by_interest' ? 'by_interest' : 'single',
-      });
+        updateRuntimeSettings(targetUserId, {
+          aiProvider: nextAiProvider,
+          geminiApiKey: nextGeminiApiKey,
+          geminiModel: nextGeminiModel,
+          openrouterApiKey: nextOpenrouterApiKey,
+          openrouterModel: nextOpenrouterModel,
+          notionApiKey: resolveSecretInput(form.notionApiKey, current.notionApiKey),
+          notionParentPageId: form.notionParentPageId || '',
+          telegramBotToken: resolveSecretInput(form.telegramBotToken, current.telegramBotToken),
+          telegramChatId: resolveSecretInput(form.telegramChatId, current.telegramChatId),
+          mammothEnabled: form.mammothEnabled === '1',
+          mammothUri: form.mammothUri || '',
+          mammothDatabase: form.mammothDatabase || '',
+          reportTimezone: form.reportTimezone || '',
+          dailyScanTime: form.dailyScanTime || '',
+          dailySendTime: form.dailySendTime || '',
+          reportPeriodDays: Number.parseInt(form.reportPeriodDays || '1', 10),
+          assistantGreeting: form.assistantGreeting || '',
+          assistantSignature: form.assistantSignature || '',
+          notionQuotaAutoclean: form.notionQuotaAutoclean === '1',
+          interests,
+          feeds: feeds as any,
+          specialProjects: specialProjects as any,
+          reportGroupingMode: form.reportGroupingMode === 'by_interest' ? 'by_interest' : 'single',
+        });
+      }
 
       options.onSettingsUpdated(targetUserId);
       const query = new URLSearchParams({
-        message: `Settings updated for ${targetUserId}`,
+        message: saveMode === 'ai-gemini'
+          ? `Active AI set to Gemini for ${targetUserId}`
+          : saveMode === 'ai-openrouter'
+            ? `Active AI set to OpenRouter for ${targetUserId}`
+            : `Settings updated for ${targetUserId}`,
       });
       if (sessionUser.role === 'admin') {
         query.set('userId', targetUserId);
