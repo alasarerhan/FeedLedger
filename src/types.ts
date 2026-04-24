@@ -29,6 +29,7 @@ export interface Article {
 // --- Structured Summary (from AI) ---
 
 export type SourceType = 'official_announcement' | 'media_report' | 'research' | 'newsletter';
+export type ReportType = 'news' | 'papers';
 
 export interface StructuredSummary {
   translated_title: string;

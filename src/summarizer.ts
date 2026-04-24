@@ -1,15 +1,13 @@
 // src/summarizer.ts
 import { OpenRouter } from '@openrouter/sdk';
-import { config, runtimeConfig } from './config.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { runtimeConfig } from './config.js';
 import { createLogger } from './logger.js';
 import { getLanguagePack } from './i18n.js';
 import type { QueueEntry, StructuredSummary, FeedKind } from './types.js';
+import type { RuntimeSettings } from './runtime-settings.js';
 
 const log = createLogger('summarizer');
-
-const openrouter = new OpenRouter({
-  apiKey: config.openrouterApiKey,
-});
 
 const KIND_TO_SOURCE_TYPE: Record<FeedKind, StructuredSummary['source_type']> = {
   official_blog: 'official_announcement',
@@ -83,7 +81,10 @@ function parseAndValidateSummary(text: string, feedKind: FeedKind): StructuredSu
   }
 }
 
-export async function summarizeEntry(entry: QueueEntry): Promise<StructuredSummary | null> {
+export async function summarizeEntry(
+  entry: QueueEntry,
+  settings: RuntimeSettings,
+): Promise<StructuredSummary | null> {
   const content = entry.enrichedContent || entry.snippet;
   const pack = getLanguagePack(runtimeConfig.language);
   const kindLabel = pack.kindLabels[entry.feedKind];
@@ -96,15 +97,31 @@ export async function summarizeEntry(entry: QueueEntry): Promise<StructuredSumma
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const result = await openrouter.chat.send({
-        model: config.openrouterModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContent },
-        ],
-      });
-
-      const text = extractResponseText(result);
+      let text = '';
+      if (settings.aiProvider === 'gemini') {
+        const genAI = new GoogleGenerativeAI(settings.geminiApiKey);
+        const model = genAI.getGenerativeModel({ 
+          model: settings.geminiModel,
+          systemInstruction: systemPrompt
+        });
+        const result = await model.generateContent(userContent);
+        text = result.response.text();
+      } else {
+        const openrouter = new OpenRouter({
+          apiKey: settings.openrouterApiKey,
+        });
+        const result = await openrouter.chat.send({
+          chatGenerationParams: {
+            model: settings.openrouterModel,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userContent },
+            ],
+          },
+        });
+        text = extractResponseText(result);
+      }
+      
       const summary = parseAndValidateSummary(text, entry.feedKind);
 
       if (summary) {

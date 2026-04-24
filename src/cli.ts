@@ -18,9 +18,9 @@ function getVersion(): string {
 }
 
 function printHelp(): void {
-  console.log(`Newscrux — AI-powered news aggregator with push notifications
+  console.log(`FeedLedger — daily AI news and paper reporting with Notion + Telegram
 
-Usage: newscrux [options]
+Usage: feedledger [options]
 
 Options:
   -l, --lang <code>   Summary language: ${SUPPORTED_LANGUAGES.join(', ')} (default: "en")
@@ -28,16 +28,30 @@ Options:
   -v, --version       Show version number
 
 Environment variables (.env):
-  OPENROUTER_API_KEY    OpenRouter API key (required)
-  PUSHOVER_USER_KEY     Pushover user key (required)
-  PUSHOVER_APP_TOKEN    Pushover app token (required)
-  OPENROUTER_MODEL      AI model (default: deepseek/deepseek-v3.2-speciale)
-  POLL_INTERVAL_MINUTES Poll interval in minutes (default: 15)
+  AI_PROVIDER           'gemini' or 'openrouter' (default: gemini)
+  GEMINI_API_KEY        Google Gemini API key (required for gemini)
+  GEMINI_MODEL          Gemini model (default: gemini-2.5-flash)
+  OPENROUTER_API_KEY    OpenRouter API key (required for openrouter)
+  OPENROUTER_MODEL      OpenRouter model (default: deepseek/deepseek-v3.2-speciale)
+  NOTION_API_KEY        Notion integration API key (required)
+  NOTION_PARENT_PAGE_ID Notion parent page ID for daily reports (required)
+  TELEGRAM_BOT_TOKEN    Telegram bot token (required)
+  TELEGRAM_CHAT_ID      Telegram target chat ID (required)
+  REPORT_TIMEZONE       IANA timezone (default: Europe/Istanbul)
+  DAILY_SCAN_TIME       Daily RSS scan time HH:MM (default: 23:45)
+  DAILY_SEND_TIME       Daily Telegram send time HH:MM (default: 06:00)
+  ADMIN_PANEL_PASSWORD  Password for admin panel login (required)
+  PANEL_HOST            Admin panel host (default: 127.0.0.1)
+  PANEL_PORT            Admin panel port (default: 8897)
+
+Scheduling:
+  Daily scan/send times are configurable via .env and Admin Panel
+  Defaults: scan=23:45, send=06:00
 
 Examples:
-  newscrux --lang=tr    Start with Turkish summaries
-  newscrux -l de        Start with German summaries
-  newscrux              Start with English summaries (default)`);
+  feedledger --lang=tr    Start with Turkish summaries/prompts
+  feedledger -l de        Start with German summaries/prompts
+  feedledger              Start with English summaries (default)`);
 }
 
 export function parseArgs(): { lang: SupportedLanguage } {

@@ -1,5 +1,33 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
+*.tsbuildinfo
+
+# Runtime state
 data/
-.env
+logs/
+*.log
+*.pid
 *.tmp
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.README.md.swp
+
+# Local Codex/runtime metadata
+.codex
+
+# Optional vendored Mammoth checkout (bootstrap at runtime if needed)
+vendor/mammoth/
+vendor/mammoth.corrupt.*/

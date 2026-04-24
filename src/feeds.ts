@@ -8,7 +8,7 @@ import type { Article, FeedConfig } from './types.js';
 const log = createLogger('feeds');
 const parser = new Parser({
   timeout: 10000,
-  headers: { 'User-Agent': 'Newscrux/2.0' },
+  headers: { 'User-Agent': 'FeedLedger/2.0' },
 });
 
 const SNIPPET_MAX_CHARS = 1500;
@@ -37,16 +37,12 @@ async function fetchFeed(feed: FeedConfig): Promise<Article[]> {
   }
 }
 
-export async function fetchAllArticles(): Promise<Article[]> {
-  const results = await Promise.allSettled(
-    config.feeds.map(feed => fetchFeed(feed))
-  );
-
+export async function fetchArticlesForFeedsSequential(feeds: FeedConfig[], label = 'all'): Promise<Article[]> {
   const allArticles: Article[] = [];
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      allArticles.push(...result.value);
-    }
+
+  for (const feed of feeds) {
+    const items = await fetchFeed(feed);
+    allArticles.push(...items);
   }
 
   const unique = deduplicateArticles(allArticles);
@@ -54,6 +50,10 @@ export async function fetchAllArticles(): Promise<Article[]> {
     new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
 
-  log.info(`Fetched ${allArticles.length} total articles, ${unique.length} after dedup`);
+  log.info(`Fetched (${label}) ${allArticles.length} total articles, ${unique.length} after dedup`);
   return unique;
+}
+
+export async function fetchAllArticles(): Promise<Article[]> {
+  return fetchArticlesForFeedsSequential(config.feeds, 'all');
 }

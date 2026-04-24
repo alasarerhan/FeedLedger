@@ -1,25 +1,41 @@
 // src/relevance.ts
 import { OpenRouter } from '@openrouter/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from './config.js';
 import { createLogger } from './logger.js';
 import type { QueueEntry } from './types.js';
+import type { RuntimeSettings } from './runtime-settings.js';
 
 const log = createLogger('relevance');
 
-const openrouter = new OpenRouter({
-  apiKey: config.openrouterApiKey,
-});
+function buildRelevancePrompt(interests: string[], projectPrompt?: string): string {
+  const interestsText = interests.length > 0
+    ? interests.map((topic, index) => `${index + 1}. ${topic}`).join('\n')
+    : '(İlgi alanı tanımlanmadı. matched_interests alanını boş dizi döndür.)';
+  const projectPromptText = (projectPrompt || '').trim();
+  const projectContext = projectPromptText
+    ? `\n\nProje odak talimatı:\n${projectPromptText}`
+    : '';
 
-const RELEVANCE_PROMPT = `Sen bir AI/ML haber filtresisin.
-Sana makale başlıkları ve açıklamaları verilecek.
-Her makale için 1-10 arası bir "ilgililik puanı" ver.
-Puanlama kriteri: makale yapay zeka, makine öğrenmesi, derin öğrenme, LLM, NLP, bilgisayarlı görü, robotik, AI donanımı/çipleri veya bu alanların doğrudan uygulamalarıyla ilgiliyse yüksek puan ver.
-Genel teknoloji, iklim, biyoteknoloji, uzay, politika gibi AI ile doğrudan ilgisi olmayan konulara düşük puan ver.
+  return `Sen bir haber/makale uygunluk filtresisin.
+Sana içerik başlıkları ve kısa açıklamaları verilecek.
+Her içerik için:
+1) 1-10 arası bir "ilgililik skoru" ver.
+2) Kullanıcının ilgi alanlarından hangilerine uyduğunu tespit et.
+
+Kullanıcı ilgi alanları:
+${interestsText}
+${projectContext}
 
 Yanıtını SADECE şu JSON formatında ver, başka metin ekleme:
-[{"id": 0, "score": 8}, {"id": 1, "score": 3}, ...]
+[{"id": 0, "score": 8, "matched_interests": ["Machine Learning"]}, {"id": 1, "score": 3, "matched_interests": []}]
 
-id = makalenin sıra numarası (0'dan başlar), score = 1-10 arası puan.`;
+Kurallar:
+- id = içerik sıra numarası (0'dan başlar)
+- score = 1-10 arası sayı
+- matched_interests = yalnızca kullanıcı ilgi alanlarından seçilen etiketlerin dizisi
+- Eşleşme yoksa matched_interests boş dizi olmalı`;
+}
 
 const MAX_RETRIES = 2;
 
@@ -28,111 +44,192 @@ async function delay(ms: number): Promise<void> {
 }
 
 export interface RelevanceResult {
-  passed: QueueEntry[];
-  dropped: Array<{ entry: QueueEntry; score: number }>;
-  bypassed: QueueEntry[];
+  passed: Array<{ entry: QueueEntry; score: number; matchedInterests: string[] }>;
+  dropped: Array<{ entry: QueueEntry; score: number; matchedInterests: string[]; reason: 'low_score' | 'no_interest_match' }>;
   parseError: boolean;
 }
 
-export async function filterByRelevance(entries: QueueEntry[]): Promise<RelevanceResult> {
-  const bypassed: QueueEntry[] = [];
-  const toScore: QueueEntry[] = [];
+export interface RelevanceFilterOptions {
+  thresholdOverride?: number;
+  requireInterestMatch?: boolean;
+  fallbackPassAllOnError?: boolean;
+  contextLabel?: string;
+  interestOverride?: string[];
+  projectPrompt?: string;
+}
 
-  for (const entry of entries) {
-    if (entry.feedPriority === 'high') {
-      bypassed.push(entry);
-    } else {
-      toScore.push(entry);
-    }
+export async function filterByRelevance(
+  entries: QueueEntry[],
+  settings: RuntimeSettings,
+  options: RelevanceFilterOptions = {},
+): Promise<RelevanceResult> {
+  if (entries.length === 0) {
+    return { passed: [], dropped: [], parseError: false };
   }
 
-  if (bypassed.length > 0) {
-    log.info(`Relevance bypass: ${bypassed.length} high-priority entries`);
-  }
+  const configuredInterests = (Array.isArray(options.interestOverride) ? options.interestOverride : settings.interests)
+    .map(topic => topic.trim())
+    .filter(Boolean);
+  const interestLookup = new Map<string, string>(
+    configuredInterests.map(topic => [topic.toLowerCase(), topic]),
+  );
+  const hasInterestFilter = configuredInterests.length > 0;
+  const threshold = Number.isFinite(options.thresholdOverride)
+    ? Math.max(1, Math.min(10, Number(options.thresholdOverride)))
+    : config.relevanceThreshold;
+  const requireInterestMatch = options.requireInterestMatch ?? hasInterestFilter;
+  const contextLabel = options.contextLabel || 'default';
 
-  if (toScore.length === 0) {
-    return { passed: [], dropped: [], bypassed, parseError: false };
-  }
+  const buildPassAllFallback = (): RelevanceResult => {
+    const passed = entries.map((entry) => {
+      const matchedInterests = hasInterestFilter
+        ? configuredInterests.filter(topic =>
+          `${entry.feedName} ${entry.title} ${entry.snippet}`.toLowerCase().includes(topic.toLowerCase()),
+        )
+        : [];
+      return {
+        entry,
+        score: threshold,
+        matchedInterests,
+      };
+    });
+    return {
+      passed,
+      dropped: [],
+      parseError: true,
+    };
+  };
 
-  const list = toScore
+  const list = entries
     .map((e, i) => `${i}. [${e.feedName}] ${e.title}\n   ${e.snippet.trim()}`)
     .join('\n');
+  const prompt = buildRelevancePrompt(configuredInterests, options.projectPrompt);
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const result = await openrouter.chat.send({
-        model: config.openrouterModel,
-        messages: [
-          { role: 'system', content: RELEVANCE_PROMPT },
-          { role: 'user', content: list },
-        ],
-      });
-
-      const rawContent = result.choices?.[0]?.message?.content;
-      let text: string;
-      if (typeof rawContent === 'string') {
-        text = rawContent;
-      } else if (Array.isArray(rawContent)) {
-        text = rawContent
-          .filter((item): item is { type: 'text'; text: string } => item.type === 'text')
-          .map(item => item.text)
-          .join('');
+      let text = '';
+      if (settings.aiProvider === 'gemini') {
+        const genAI = new GoogleGenerativeAI(settings.geminiApiKey);
+        const model = genAI.getGenerativeModel({ 
+          model: settings.geminiModel,
+          systemInstruction: prompt,
+        });
+        const result = await model.generateContent(list);
+        text = result.response.text();
       } else {
-        text = '';
+        const openrouter = new OpenRouter({
+          apiKey: settings.openrouterApiKey,
+        });
+        const result = await openrouter.chat.send({
+          chatGenerationParams: {
+            model: settings.openrouterModel,
+            messages: [
+              { role: 'system', content: prompt },
+              { role: 'user', content: list },
+            ],
+          },
+        });
+
+        const rawContent = result.choices?.[0]?.message?.content;
+        if (typeof rawContent === 'string') {
+          text = rawContent;
+        } else if (Array.isArray(rawContent)) {
+          text = rawContent
+            .filter((item): item is { type: 'text'; text: string } => item.type === 'text')
+            .map(item => item.text)
+            .join('');
+        }
       }
 
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        log.warn('No JSON array found in relevance response');
+        log.warn(`No JSON array found in relevance response (context=${contextLabel})`);
         if (attempt < MAX_RETRIES) {
           await delay(Math.pow(2, attempt + 1) * 1000);
           continue;
         }
-        return { passed: [], dropped: [], bypassed, parseError: true };
+        if (options.fallbackPassAllOnError) {
+          log.warn(`Relevance parse failed; passing all entries as fallback (context=${contextLabel})`);
+          return buildPassAllFallback();
+        }
+        return { passed: [], dropped: [], parseError: true };
       }
 
-      const parsed = JSON.parse(jsonMatch[0]) as Array<{ id: number; score: number }>;
-      const scores = new Map<number, number>();
+      const parsed = JSON.parse(jsonMatch[0]) as Array<{ id: number; score: number; matched_interests?: string[] }>;
+      const scored = new Map<number, { score: number; matchedInterests: string[] }>();
       for (const entry of parsed) {
         if (typeof entry.id === 'number' && typeof entry.score === 'number') {
-          scores.set(entry.id, entry.score);
+          const rawMatches = Array.isArray(entry.matched_interests) ? entry.matched_interests : [];
+          const normalizedMatches = Array.from(
+            new Set(
+              rawMatches
+                .filter((value): value is string => typeof value === 'string')
+                .map(value => value.trim())
+                .filter(Boolean)
+                .map(value => interestLookup.get(value.toLowerCase()) || value),
+            ),
+          );
+          const matchedInterests = hasInterestFilter
+            ? normalizedMatches.filter(value => interestLookup.has(value.toLowerCase()))
+            : normalizedMatches;
+          scored.set(entry.id, { score: entry.score, matchedInterests });
         }
       }
 
-      const threshold = config.relevanceThreshold;
-      const passed: QueueEntry[] = [];
-      const dropped: Array<{ entry: QueueEntry; score: number }> = [];
+      const passed: Array<{ entry: QueueEntry; score: number; matchedInterests: string[] }> = [];
+      const dropped: Array<{ entry: QueueEntry; score: number; matchedInterests: string[]; reason: 'low_score' | 'no_interest_match' }> = [];
 
-      for (let i = 0; i < toScore.length; i++) {
-        const score = scores.get(i);
-        if (score === undefined) {
-          passed.push(toScore[i]);
-        } else if (score >= threshold) {
-          passed.push(toScore[i]);
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const item = scored.get(i);
+        const score = item?.score ?? (entry.feedPriority === 'high' ? 10 : threshold);
+        const fallbackMatches = hasInterestFilter
+          ? configuredInterests.filter(topic =>
+            `${entry.feedName} ${entry.title} ${entry.snippet}`.toLowerCase().includes(topic.toLowerCase()),
+          )
+          : [];
+        const matchedInterests = (item?.matchedInterests && item.matchedInterests.length > 0)
+          ? item.matchedInterests
+          : fallbackMatches;
+
+        if (requireInterestMatch && matchedInterests.length === 0) {
+          dropped.push({ entry, score, matchedInterests, reason: 'no_interest_match' });
+          continue;
+        }
+
+        if (entry.feedPriority === 'high' || score >= threshold) {
+          passed.push({ entry, score, matchedInterests });
         } else {
-          dropped.push({ entry: toScore[i], score });
+          dropped.push({ entry, score, matchedInterests, reason: 'low_score' });
         }
       }
 
       if (dropped.length > 0) {
         log.info(
-          `Relevance dropped ${dropped.length}: ${dropped.map(d => `"${d.entry.title}" (${d.score}/${threshold})`).join(', ')}`
+          `Relevance dropped ${dropped.length} (context=${contextLabel}): ${dropped.map(d => `"${d.entry.title}" (${d.reason}, ${d.score}/${threshold})`).join(', ')}`
         );
       }
-      log.info(`Relevance: ${passed.length}/${toScore.length} passed (threshold ${threshold})`);
+      log.info(
+        `Relevance (${contextLabel}): ${passed.length}/${entries.length} passed `
+        + `(threshold ${threshold}, requireInterestMatch=${requireInterestMatch}, interests=${configuredInterests.length})`
+      );
 
-      return { passed, dropped, bypassed, parseError: false };
+      return { passed, dropped, parseError: false };
     } catch (err) {
       if (attempt < MAX_RETRIES) {
         const backoffMs = Math.pow(2, attempt + 1) * 1000;
-        log.warn(`Relevance attempt ${attempt + 1} failed, retrying in ${backoffMs}ms: ${err}`);
+        log.warn(`Relevance attempt ${attempt + 1} failed (context=${contextLabel}), retrying in ${backoffMs}ms: ${err}`);
         await delay(backoffMs);
       } else {
-        log.error('Relevance check failed after retries — entries stay discovered for retry', err);
-        return { passed: [], dropped: [], bypassed, parseError: true };
+        if (options.fallbackPassAllOnError) {
+          log.warn(`Relevance failed after retries; passing all entries as fallback (context=${contextLabel})`);
+          return buildPassAllFallback();
+        }
+        log.error(`Relevance check failed after retries (context=${contextLabel}) — entries stay discovered for retry`, err);
+        return { passed: [], dropped: [], parseError: true };
       }
     }
   }
 
-  return { passed: [], dropped: [], bypassed, parseError: true };
+  return { passed: [], dropped: [], parseError: true };
 }

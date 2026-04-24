@@ -1,0 +1,21 @@
+services:
+  feedledger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: feedledger
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PANEL_HOST: 0.0.0.0
+      PANEL_PORT: "8897"
+      MAMMOTH_ENABLED: "true"
+      MAMMOTH_URI: mongodb://127.0.0.1:27017
+      MAMMOTH_DATABASE: feedledger
+    ports:
+      - "8897:8897"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./data/mammoth:/data/mammoth

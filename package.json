@@ -1,16 +1,16 @@
 {
-  "name": "newscrux",
+  "name": "feedledger",
   "version": "2.0.0",
   "description": "AI-powered news aggregator with structured multilingual summaries and push notifications",
   "author": "Alican Kiraz",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alicankiraz1/newscrux"
+    "url": "https://github.com/alasarerhan/feedledger"
   },
-  "homepage": "https://github.com/alicankiraz1/newscrux#readme",
+  "homepage": "https://github.com/alasarerhan/feedledger#readme",
   "bugs": {
-    "url": "https://github.com/alicankiraz1/newscrux/issues"
+    "url": "https://github.com/alasarerhan/feedledger/issues"
   },
   "keywords": [
     "ai",
@@ -24,18 +24,30 @@
     "deepseek"
   ],
   "bin": {
-    "newscrux": "./dist/index.js"
+    "feedledger": "./dist/index.js"
   },
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:server && npm run build:reader",
+    "build:server": "tsc",
+    "build:reader": "esbuild web/reader-app.tsx --bundle --platform=browser --format=esm --outfile=dist/reader/app.js --sourcemap",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "e2e:real": "tsx src/e2e-real.ts",
+    "backfill:reader": "tsx src/backfill-reader.ts",
+    "mammoth:up": "bash scripts/mammoth-up.sh",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down"
   },
   "dependencies": {
-    "@openrouter/sdk": "^0.1.0",
+    "@google/generative-ai": "^0.24.1",
+    "@openrouter/sdk": "^0.10.2",
     "cheerio": "^1.2.0",
     "dotenv": "^16.4.0",
+    "esbuild": "^0.28.0",
+    "mongodb": "^7.1.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {

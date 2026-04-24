@@ -1,0 +1,29 @@
+# FeedLedger AI News Push Notification Service
+# Edit --lang= flag and paths to match your setup
+
+[Unit]
+Description=FeedLedger AI News Push Notification Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documents/newscrux
+ExecStart=/usr/bin/node %h/Documents/newscrux/dist/index.js --lang=en
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+EnvironmentFile=%h/Documents/newscrux/.env
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=feedledger
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=%h/Documents/newscrux/data
+
+[Install]
+WantedBy=default.target

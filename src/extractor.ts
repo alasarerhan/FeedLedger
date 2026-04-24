@@ -44,7 +44,7 @@ async function scrapeArticle(url: string): Promise<string | null> {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Newscrux/2.0; +https://github.com/alicankiraz1/newscrux)',
+        'User-Agent': 'Mozilla/5.0 (compatible; FeedLedger/2.0; +https://github.com/alasarerhan/feedledger)',
         'Accept': 'text/html',
       },
     });

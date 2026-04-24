@@ -1,0 +1,16 @@
+name: feedledger-mammoth
+
+services:
+  mammoth:
+    image: feedledger-mammoth:local
+    build:
+      context: ./vendor/mammoth
+      dockerfile: Dockerfile
+    container_name: feedledger-mammoth
+    restart: unless-stopped
+    command: ["serve", "--data-dir", "/var/lib/mammoth", "--port", "27017"]
+    ports:
+      - "27017:27017"
+      - "8081:8080"
+    volumes:
+      - ./data/mammoth:/var/lib/mammoth

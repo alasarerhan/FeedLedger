@@ -1,4 +1,4 @@
-# Contributing to Newscrux
+# Contributing to FeedLedger
 
 Thank you for your interest in contributing!
 
@@ -28,4 +28,4 @@ To add a new language to the notification system:
 
 ## Reporting Issues
 
-Please use [GitHub Issues](https://github.com/alicankiraz1/newscrux/issues) to report bugs or suggest features.
+Please use the repository's **GitHub Issues** page to report bugs or suggest features.

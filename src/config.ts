@@ -5,8 +5,11 @@ import type { FeedConfig } from './types.js';
 import type { SupportedLanguage } from './i18n.js';
 
 export const config = {
+  aiProvider: (process.env.AI_PROVIDER || 'gemini') as 'openrouter' | 'gemini',
   openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
   openrouterModel: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v3.2-speciale',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   pushoverUserKey: process.env.PUSHOVER_USER_KEY || '',
   pushoverAppToken: process.env.PUSHOVER_APP_TOKEN || '',
   pollIntervalMinutes: parseInt(process.env.POLL_INTERVAL_MINUTES || '15', 10),

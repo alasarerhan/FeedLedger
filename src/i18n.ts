@@ -31,7 +31,7 @@ const en: LanguagePack = {
     whyItMatters: 'Why it matters:',
     readMore: 'Read More',
     readArticle: 'Read Article',
-    startupMessage: 'Newscrux started! AI news notifications active.',
+    startupMessage: 'FeedLedger started! AI news notifications active.',
   },
   summarySystemPrompt: (kindLabel, sourceType) => `You are a technology news analysis system.
 You are given a ${kindLabel}. Analyze it and produce output in the following JSON format in English.
@@ -66,7 +66,7 @@ const tr: LanguagePack = {
     whyItMatters: 'Neden önemli:',
     readMore: 'Devamını Oku',
     readArticle: 'Makaleyi Oku',
-    startupMessage: 'Newscrux başlatıldı! AI haber bildirimleri aktif.',
+    startupMessage: 'FeedLedger başlatıldı! AI haber bildirimleri aktif.',
   },
   summarySystemPrompt: (kindLabel, sourceType) => `Sen bir teknoloji haberleri analiz sistemisin.
 Sana bir ${kindLabel} veriliyor. Analiz edip aşağıdaki JSON formatında Türkçe çıktı üret.
@@ -101,7 +101,7 @@ const de: LanguagePack = {
     whyItMatters: 'Warum es wichtig ist:',
     readMore: 'Weiterlesen',
     readArticle: 'Artikel lesen',
-    startupMessage: 'Newscrux gestartet! KI-Nachrichtenbenachrichtigungen aktiv.',
+    startupMessage: 'FeedLedger gestartet! KI-Nachrichtenbenachrichtigungen aktiv.',
   },
   summarySystemPrompt: (kindLabel, sourceType) => `Du bist ein Technologie-Nachrichtenanalysesystem.
 Dir wird ein ${kindLabel} gegeben. Analysiere ihn und erstelle eine Ausgabe im folgenden JSON-Format auf Deutsch.
@@ -136,7 +136,7 @@ const fr: LanguagePack = {
     whyItMatters: 'Pourquoi c\'est important\u00A0:',
     readMore: 'Lire la suite',
     readArticle: 'Lire l\'article',
-    startupMessage: 'Newscrux démarré\u00A0! Notifications d\'actualités IA actives.',
+    startupMessage: 'FeedLedger démarré\u00A0! Notifications d\'actualités IA actives.',
   },
   summarySystemPrompt: (kindLabel, sourceType) => `Tu es un système d'analyse d'actualités technologiques.
 On te donne un ${kindLabel}. Analyse-le et produis une sortie au format JSON suivant en français.
@@ -171,7 +171,7 @@ const es: LanguagePack = {
     whyItMatters: 'Por qué importa:',
     readMore: 'Leer más',
     readArticle: 'Leer artículo',
-    startupMessage: 'Newscrux iniciado. Notificaciones de noticias de IA activas.',
+    startupMessage: 'FeedLedger iniciado. Notificaciones de noticias de IA activas.',
   },
   summarySystemPrompt: (kindLabel, sourceType) => `Eres un sistema de análisis de noticias tecnológicas.
 Se te da un ${kindLabel}. Analízalo y produce una salida en el siguiente formato JSON en español.
